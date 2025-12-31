@@ -1,0 +1,11 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: simulation-service
+  datasource:
+    # 数据库配置占位符
+    url: jdbc:mysql://localhost:3306/db_simulation?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: password
