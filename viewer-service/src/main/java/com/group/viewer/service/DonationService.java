@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID; // 1. 记得导入这个包
+import cn.hutool.core.util.StrUtil; // 如果你有 hutool
 
 import java.time.LocalDateTime;
 
@@ -20,10 +22,24 @@ public class DonationService {
 
     @Transactional(rollbackFor = Exception.class)
     public void processDonation(DonationRecord record, String traceId) {
+
+
         // 1. 填充基础信息
-        record.setDonateTime(LocalDateTime.now());
+        if (traceId == null || traceId.trim().isEmpty()) {
+            traceId = UUID.randomUUID().toString().replace("-", "");
+            System.out.println("⚠️ 警告: 拦截器未生效，Service层手动生成了 traceId: " + traceId);
+        }
+
+        // 把 ID 填进对象里
         record.setTraceId(traceId);
-        record.setSyncStatus(0);
+
+        // 确保其他必要字段也有值
+        if (record.getDonateTime() == null) {
+            record.setDonateTime(LocalDateTime.now());
+        }
+        if (record.getSyncStatus() == null) {
+            record.setSyncStatus(0);
+        }
 
         try {
             // 2. 插入数据库

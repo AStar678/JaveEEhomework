@@ -21,6 +21,8 @@
         <spring-boot.version>2.7.12</spring-boot.version>
         <spring-cloud.version>2021.0.8</spring-cloud.version>
         <spring-cloud-alibaba.version>2021.0.5.0</spring-cloud-alibaba.version>
+
+        <lombok.version>1.18.30</lombok.version>
     </properties>
 
     <repositories>
