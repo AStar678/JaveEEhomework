@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "SimulationApplication",
+            "request": "launch",
+            "mainClass": "com.group.simulation.SimulationApplication",
+            "projectName": "simulation-service"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ViewerApplication<viewer-service>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.group.viewer.ViewerApplication",
+            "projectName": "viewer-service",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

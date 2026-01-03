@@ -1,0 +1,11 @@
+com\group\simulation\SimulationApplication.class
+com\group\simulation\service\SimulationService$RoomStatus.class
+com\group\simulation\service\MockService.class
+com\group\simulation\config\FeignConfig.class
+com\group\simulation\controller\SimulationController.class
+com\group\simulation\service\SimulationScheduledTasks.class
+com\group\simulation\dto\DonateRequest.class
+com\group\simulation\service\SimulationService.class
+com\group\simulation\config\ThreadPoolConfig.class
+com\group\simulation\dto\StartRoomRequest.class
+com\group\simulation\client\ViewerFeignClient.class

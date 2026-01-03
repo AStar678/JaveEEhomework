@@ -24,6 +24,11 @@ spring:
       discovery:
         service-name: ${spring.application.name}
         prefer-ip-address: true
+        register-health-check: false
+      config:
+        enabled: false
+    discovery:
+      enabled: false
 
 # MyBatis-Plus 配置
 mybatis-plus:

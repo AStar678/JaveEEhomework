@@ -1,0 +1,4 @@
+com\group\common\exception\GlobalExceptionHandler.class
+com\group\common\interceptor\TraceIdInterceptor.class
+com\group\common\util\IdGenerator.class
+com\group\common\dto\Result.class

@@ -1,0 +1,5 @@
+com\group\viewer\mapper\DonationMapper.class
+com\group\viewer\controller\DonationController.class
+com\group\viewer\entity\DonationRecord.class
+com\group\viewer\service\DonationService.class
+com\group\viewer\ViewerApplication.class
