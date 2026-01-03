@@ -1,3 +1,11 @@
+/**
+ * @FileName: DonateRequest.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: 打赏请求数据传输对象，用于封装打赏相关参数
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并定义打赏请求参数
+ */
 package com.group.simulation.dto;
 
 import lombok.Data;

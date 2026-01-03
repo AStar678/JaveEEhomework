@@ -1,3 +1,11 @@
+/**
+ * @FileName: SimulationScheduledTasks.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: 模拟服务定时任务类，用于自动执行各种模拟任务
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并实现定时任务功能
+ */
 package com.group.simulation.service;
 
 import java.util.Random;

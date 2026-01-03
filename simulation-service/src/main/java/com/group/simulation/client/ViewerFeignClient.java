@@ -1,3 +1,11 @@
+/**
+ * @FileName: ViewerFeignClient.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: 观众服务Feign客户端，用于模拟服务与观众服务之间的通信
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并定义与观众服务通信的接口
+ */
 package com.group.simulation.client;
 
 import org.springframework.cloud.openfeign.FeignClient;

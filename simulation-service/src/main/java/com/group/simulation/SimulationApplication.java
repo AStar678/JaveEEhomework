@@ -1,3 +1,11 @@
+/**
+ * @FileName: SimulationApplication.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: 模拟服务应用启动类，负责服务初始化和端口冲突检测
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并实现端口冲突检测功能
+ */
 package com.group.simulation;
 
 import org.springframework.boot.SpringApplication;

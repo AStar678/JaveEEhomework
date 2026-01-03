@@ -1,3 +1,11 @@
+/**
+ * @FileName: StartRoomRequest.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: 启动直播间请求数据传输对象，用于封装直播间启动相关参数
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并定义启动直播间请求参数
+ */
 package com.group.simulation.dto;
 
 import lombok.Data;

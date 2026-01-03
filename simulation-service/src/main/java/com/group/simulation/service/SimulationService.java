@@ -1,3 +1,11 @@
+/**
+ * @FileName: SimulationService.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: 模拟服务核心实现类，提供直播间管理、打赏模拟、观众进入等功能
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并实现所有模拟服务核心功能
+ */
 package com.group.simulation.service;
 
 import com.group.common.dto.Result;

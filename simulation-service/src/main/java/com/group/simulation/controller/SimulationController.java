@@ -1,3 +1,11 @@
+/**
+ * @FileName: SimulationController.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: 模拟服务REST接口控制器，提供直播间管理和模拟功能的API接口
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并实现所有模拟服务API接口
+ */
 package com.group.simulation.controller;
 
 import com.group.common.dto.Result;

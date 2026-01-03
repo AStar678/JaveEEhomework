@@ -1,10 +1,19 @@
+/**
+ * @FileName: MockService.java
+ * @Author: 陈子聪
+ * @Date: 2026-01-03
+ * @Description: Mock服务实现，用于模拟观众服务的响应，便于测试
+ * @History:
+ * 2026-01-03 陈子聪 创建文件并实现Mock服务功能
+ */
 package com.group.simulation.service;
+
+import org.springframework.stereotype.Service;
 
 import com.group.common.dto.Result;
 import com.group.simulation.client.ViewerFeignClient;
 import com.group.simulation.dto.DonateRequest;
 import com.group.simulation.dto.StartRoomRequest;
-import org.springframework.stereotype.Service;
 
 /**
  * Mock服务实现
