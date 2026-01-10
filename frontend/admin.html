@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>运营后台 - 综合管理平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        .nav-tabs { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div id="app" class="container mt-4">
+    <h2 class="mb-4">📊 运营后台 - 综合管理平台</h2>
+
+    <!-- 压测控制 (全局) -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">🔥 压力测试控制台</div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <label>并发线程数</label>
+                </div>
+                <div class="col-auto">
+                    <input type="number" v-model.number="threads" class="form-control" style="width: 100px;">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-success" @click="startSim" :disabled="isRunning">启动模拟</button>
+                    <button class="btn btn-secondary ms-2" @click="stopSim" :disabled="!isRunning">停止模拟</button>
+                </div>
+                <div class="col">
+                    <span :class="['badge', isRunning ? 'bg-success' : 'bg-secondary']">
+                        {{ isRunning ? '运行中' : '未启动' }}
+                    </span>
+                    <span class="text-muted ms-2">{{ simMessage }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a :class="['nav-link', activeTab === 'stats' ? 'active' : '']" href="#" @click.prevent="activeTab = 'stats'">📈 聚合报表 (分钟级)</a>
+        </li>
+        <li class="nav-item">
+            <a :class="['nav-link', activeTab === 'profile' ? 'active' : '']" href="#" @click.prevent="loadProfile">👥 观众画像分布</a>
+        </li>
+        <li class="nav-item">
+            <a :class="['nav-link', activeTab === 'details' ? 'active' : '']" href="#" @click.prevent="loadDetails(1)">📝 打赏明细流水</a>
+        </li>
+        <li class="nav-item">
+            <a :class="['nav-link', activeTab === 'finance' ? 'active' : '']" href="#" @click.prevent="activeTab = 'finance'">💰 主播财务管理</a>
+        </li>
+    </ul>
+
+    <!-- 1. 报表查询 -->
+    <div v-show="activeTab === 'stats'" class="card">
+        <div class="card-body">
+            <form class="row g-3 mb-3" @submit.prevent="queryStats(1)">
+                <div class="col-md-2">
+                    <label>主播ID</label>
+                    <input type="number" v-model.number="query.anchorId" class="form-control" placeholder="可选">
+                </div>
+                <div class="col-md-2">
+                    <label>观众性别</label>
+                    <select v-model.number="query.viewerGender" class="form-select">
+                        <option value="">全部</option>
+                        <option value="1">男</option>
+                        <option value="2">女</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>主播性别</label>
+                    <select v-model.number="query.anchorGender" class="form-select">
+                        <option value="">全部</option>
+                        <option value="1">男</option>
+                        <option value="2">女</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>开始时间</label>
+                    <input type="datetime-local" v-model="query.startTime" class="form-control" step="1">
+                </div>
+                <div class="col-md-3">
+                    <label>结束时间</label>
+                    <input type="datetime-local" v-model="query.endTime" class="form-control" step="1">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary" :disabled="loading">
+                        {{ loading ? '查询中...' : '查询数据' }}
+                    </button>
+                </div>
+            </form>
+
+            <div id="trendChart" class="chart-container" v-show="stats.length > 0"></div>
+
+            <div v-if="stats.length > 0">
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>主播</th>
+                        <th>主播性别</th>
+                        <th>观众性别</th>
+                        <th>总金额</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="item in stats">
+                        <td>{{ formatTime(item.statHour) }}</td>
+                        <td>{{ item.anchorName }} (ID: {{ item.anchorId }})</td>
+                        <td>{{ item.anchorGender === 1 ? '男' : '女' }}</td>
+                        <td>{{ item.viewerGender === 1 ? '男' : '女' }}</td>
+                        <td>￥{{ item.totalAmount }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+                
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        <li :class="['page-item', { disabled: page.current <= 1 }]">
+                            <button class="page-link" @click="queryStats(page.current - 1)">上一页</button>
+                        </li>
+                        <li class="page-item disabled">
+                            <span class="page-link">第 {{ page.current }} / {{ page.pages }} 页 (共 {{ page.total }} 条)</span>
+                        </li>
+                        <li :class="['page-item', { disabled: page.current >= page.pages }]">
+                            <button class="page-link" @click="queryStats(page.current + 1)">下一页</button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            <div v-else-if="searched" class="text-center text-muted py-4">暂无数据 (请确认ETL任务已执行)</div>
+        </div>
+    </div>
+
+    <!-- 2. 观众画像 -->
+    <div v-show="activeTab === 'profile'" class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-3">
+                <h5>观众消费等级分布</h5>
+                <button class="btn btn-sm btn-outline-primary" @click="loadProfile">刷新</button>
+            </div>
+            <div id="profileChart" class="chart-container"></div>
+        </div>
+    </div>
+
+    <!-- 3. 明细查询 -->
+    <div v-if="activeTab === 'details'" class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-3">
+                <h5>实时打赏流水</h5>
+                <button class="btn btn-sm btn-outline-primary" @click="loadDetails(1)">刷新</button>
+            </div>
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>时间</th>
+                    <th>主播信息</th>
+                    <th>观众信息</th>
+                    <th>金额</th>
+                    <th>状态</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="item in details">
+                    <td>{{ item.id }}</td>
+                    <td>{{ formatTime(item.donateTime) }}</td>
+                    <td>{{ item.anchorName }} <span class="badge bg-secondary">ID:{{ item.anchorId }}</span></td>
+                    <td>{{ item.viewerName }} <span class="badge bg-info text-dark">ID:{{ item.viewerId }}</span></td>
+                    <td class="text-success fw-bold">￥{{ item.amount }}</td>
+                    <td>
+                        <span v-if="item.syncStatus === 1" class="badge bg-success">已结算</span>
+                        <span v-else class="badge bg-warning text-dark">未结算</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            
+            <nav aria-label="Page navigation" v-if="details.length > 0">
+                <ul class="pagination justify-content-center">
+                    <li :class="['page-item', { disabled: detailPage.current <= 1 }]">
+                        <button class="page-link" @click="loadDetails(detailPage.current - 1)">上一页</button>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">第 {{ detailPage.current }} / {{ detailPage.pages }} 页</span>
+                    </li>
+                    <li :class="['page-item', { disabled: detailPage.current >= detailPage.pages }]">
+                        <button class="page-link" @click="loadDetails(detailPage.current + 1)">下一页</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 4. 主播财务管理 -->
+    <div v-if="activeTab === 'finance'" class="card">
+        <div class="card-body">
+            <div class="row">
+                <!-- 左侧：查询与提现 -->
+                <div class="col-md-6 border-end">
+                    <h5 class="card-title text-center mb-4">💰 余额查询与提现</h5>
+                    <div class="mb-3 text-center">
+                        <div class="input-group w-75 mx-auto">
+                            <input type="number" v-model.number="finance.anchorId" class="form-control" placeholder="输入主播ID">
+                            <button class="btn btn-primary" @click="fetchBalance">查询</button>
+                        </div>
+                    </div>
+                    
+                    <div v-if="finance.balance" class="text-center">
+                        <h3 class="text-primary">{{ finance.balance.anchorName || '未知主播' }}</h3>
+                        <hr>
+                        <div class="row mt-4">
+                            <div class="col-3">
+                                <div class="text-muted">打赏总流水</div>
+                                <h4 class="text-info">￥{{ finance.balance.totalRevenue || 0 }}</h4>
+                            </div>
+                            <div class="col-3">
+                                <div class="text-muted">累计分成</div>
+                                <h4>￥{{ finance.balance.totalSettledAmount }}</h4>
+                            </div>
+                            <div class="col-3">
+                                <div class="text-muted">已提现</div>
+                                <h4>￥{{ finance.balance.totalWithdrawnAmount }}</h4>
+                            </div>
+                            <div class="col-3">
+                                <div class="text-muted">可提现</div>
+                                <h4 class="text-success">￥{{ withdrawableAmount }}</h4>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <div class="input-group w-75 mx-auto">
+                                <input type="number" v-model.number="finance.withdrawAmount" class="form-control" placeholder="提现金额">
+                                <button class="btn btn-success" @click="withdraw">提现</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else-if="finance.searched" class="text-center text-muted mt-3">未查询到财务信息</div>
+                </div>
+
+                <!-- 右侧：分成比例设置 -->
+                <div class="col-md-6">
+                    <h5 class="card-title text-center mb-4">⚙️ 分成比例设置</h5>
+                    <div class="w-75 mx-auto">
+                        <div class="mb-3">
+                            <label>主播ID</label>
+                            <div class="input-group">
+                                <input type="number" v-model.number="ratio.anchorId" class="form-control" placeholder="输入主播ID">
+                                <button class="btn btn-info" @click="fetchRatio">查询比例</button>
+                            </div>
+                        </div>
+                        
+                        <div v-if="ratio.anchorName" class="mb-3 text-center text-primary fw-bold">
+                            当前主播: {{ ratio.anchorName }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label>分成比例</label>
+                            <div class="input-group">
+                                <input type="number" v-model.number="ratio.currentRatio" class="form-control" step="0.01" min="0" max="1">
+                                <span class="input-group-text">（0.5 表示 50%）</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-warning w-100" @click="updateRatio">更新比例</button>
+                        <div v-if="ratio.message" :class="['alert', 'mt-3', ratio.isError ? 'alert-danger' : 'alert-success']">{{ ratio.message }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 全局消息提示 -->
+            <div v-if="finance.message" :class="['alert', 'mt-3', 'text-center', finance.isError ? 'alert-danger' : 'alert-success']">{{ finance.message }}</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            activeTab: 'stats',
+            threads: 20,
+            isRunning: false,
+            simMessage: '',
+            // 报表查询数据
+            query: {
+                anchorId: null,
+                viewerGender: null,
+                anchorGender: null,
+                startTime: '2023-01-01T00:00:00',
+                endTime: '2026-12-31T23:59:59'
+            },
+            stats: [],
+            page: { current: 1, size: 10, total: 0, pages: 0 },
+            loading: false,
+            searched: false,
+            trendChart: null,
+            profileChart: null,
+            // 明细数据
+            details: [],
+            detailPage: { current: 1, size: 10, total: 0, pages: 0 },
+            // 财务数据
+            finance: {
+                anchorId: 1,
+                balance: null,
+                withdrawAmount: 0,
+                message: '',
+                isError: false,
+                searched: false
+            },
+            // 分成比例数据
+            ratio: {
+                anchorId: 1,
+                anchorName: '',
+                currentRatio: 0.5,
+                message: '',
+                isError: false
+            }
+        },
+        computed: {
+            withdrawableAmount() {
+                if (!this.finance.balance) return 0;
+                return this.finance.balance.totalSettledAmount - this.finance.balance.totalWithdrawnAmount;
+            }
+        },
+        methods: {
+            // --- 压测控制 ---
+            startSim() {
+                axios.get(`http://localhost:8084/start?threads=${this.threads}`)
+                    .then(res => {
+                        this.simMessage = res.data.data;
+                        this.isRunning = true;
+                    })
+                    .catch(err => {
+                        if (err.message === 'Network Error') {
+                            this.simMessage = '请求已发送 (可能存在跨域问题)';
+                            this.isRunning = true; 
+                        } else {
+                            alert('启动失败: ' + err);
+                        }
+                    });
+            },
+            stopSim() {
+                axios.get(`http://localhost:8084/stop`)
+                    .then(res => {
+                        this.simMessage = res.data.data;
+                        this.isRunning = false;
+                    })
+                    .catch(err => {
+                        if (err.message === 'Network Error') {
+                            this.simMessage = '请求已发送 (可能存在跨域问题)';
+                            this.isRunning = false;
+                        } else {
+                            alert('停止失败: ' + err);
+                        }
+                    });
+            },
+            // --- 报表查询 ---
+            queryStats(pageNum) {
+                if (pageNum < 1) return;
+                this.loading = true;
+                this.searched = false;
+                
+                const params = new URLSearchParams();
+                if (this.query.anchorId) params.append('anchorId', this.query.anchorId);
+                if (this.query.viewerGender) params.append('viewerGender', this.query.viewerGender);
+                if (this.query.anchorGender) params.append('anchorGender', this.query.anchorGender);
+                if (this.query.startTime) params.append('startTime', this.query.startTime.replace('T', ' '));
+                if (this.query.endTime) params.append('endTime', this.query.endTime.replace('T', ' '));
+                
+                // 1. 请求分页数据 (用于表格)
+                const pageParams = new URLSearchParams(params);
+                pageParams.append('page', pageNum);
+                pageParams.append('size', this.page.size);
+                
+                const reqTable = axios.get(`http://localhost:8083/analysis/stats/hourly?${pageParams.toString()}`);
+                
+                // 2. 请求全量趋势数据 (用于图表)
+                const reqTrend = axios.get(`http://localhost:8083/analysis/stats/trend?${params.toString()}`);
+
+                Promise.all([reqTable, reqTrend])
+                    .then(([resTable, resTrend]) => {
+                        // 处理表格数据
+                        if (resTable.data.code === 200) {
+                            const pageData = resTable.data.data;
+                            this.stats = pageData.records;
+                            this.page.current = pageData.current;
+                            this.page.total = pageData.total;
+                            this.page.pages = pageData.pages;
+                        } else {
+                            alert('表格查询错误: ' + resTable.data.message);
+                        }
+                        
+                        // 处理图表数据
+                        if (resTrend.data.code === 200) {
+                            this.$nextTick(() => this.renderTrendChart(resTrend.data.data));
+                        }
+                    })
+                    .catch(err => alert('请求失败: ' + err))
+                    .finally(() => {
+                        this.loading = false;
+                        this.searched = true;
+                    });
+            },
+            renderTrendChart(data) {
+                if (!this.trendChart) {
+                    this.trendChart = echarts.init(document.getElementById('trendChart'));
+                }
+                
+                // 1. 按时间聚合数据
+                const aggregatedData = {};
+                data.forEach(item => {
+                    const timeKey = this.formatTime(item.time);
+                    if (!aggregatedData[timeKey]) {
+                        aggregatedData[timeKey] = 0;
+                    }
+                    aggregatedData[timeKey] += item.amount;
+                });
+                
+                // 2. 转换为数组并排序
+                const sortedKeys = Object.keys(aggregatedData).sort((a, b) => new Date(a) - new Date(b));
+                const sortedValues = sortedKeys.map(key => aggregatedData[key]);
+                
+                const option = {
+                    title: { text: '打赏金额趋势 (全量数据)' },
+                    tooltip: { trigger: 'axis' },
+                    // 开启缩放
+                    dataZoom: [
+                        { type: 'slider', start: 0, end: 100 },
+                        { type: 'inside', start: 0, end: 100 }
+                    ],
+                    xAxis: { 
+                        type: 'category', 
+                        data: sortedKeys,
+                        axisLabel: { rotate: 45 }
+                    },
+                    yAxis: { type: 'value' },
+                    series: [{ 
+                        data: sortedValues, 
+                        type: 'line', 
+                        smooth: true, 
+                        areaStyle: {},
+                        itemStyle: { color: '#5470C6' }
+                    }]
+                };
+                this.trendChart.setOption(option);
+            },
+            // --- 观众画像 ---
+            loadProfile() {
+                this.activeTab = 'profile';
+                axios.get(`http://localhost:8083/analysis/stats/profile-distribution`)
+                    .then(res => {
+                        if (res.data.code === 200) {
+                            this.$nextTick(() => this.renderProfileChart(res.data.data));
+                        }
+                    })
+                    .catch(err => alert('加载画像失败: ' + err));
+            },
+            renderProfileChart(data) {
+                if (!this.profileChart) {
+                    this.profileChart = echarts.init(document.getElementById('profileChart'));
+                }
+                const option = {
+                    title: { text: '观众消费等级分布', left: 'center' },
+                    tooltip: { trigger: 'item' },
+                    legend: { orient: 'vertical', left: 'left' },
+                    series: [{ name: '人数', type: 'pie', radius: '50%', data: data, emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } } }]
+                };
+                this.profileChart.setOption(option);
+            },
+            // --- 明细查询 ---
+            loadDetails(pageNum) {
+                if (pageNum < 1) return;
+                this.activeTab = 'details';
+                axios.get(`http://localhost:8081/viewer/donations/list?page=${pageNum}&size=${this.detailPage.size}`)
+                    .then(res => {
+                        if (res.data.code === 200) {
+                            const pageData = res.data.data;
+                            this.details = pageData.records;
+                            this.detailPage.current = pageData.current;
+                            this.detailPage.total = pageData.total;
+                            this.detailPage.pages = pageData.pages;
+                        }
+                    })
+                    .catch(err => alert('加载明细失败: ' + err));
+            },
+            // --- 财务管理 ---
+            fetchBalance() {
+                if (!this.finance.anchorId) return;
+                this.finance.searched = false;
+                this.finance.balance = null;
+                axios.get(`http://localhost:8082/finance/settlement/${this.finance.anchorId}`)
+                    .then(res => {
+                        if (res.data.code === 200 && res.data.data) {
+                            this.finance.balance = res.data.data;
+                        } else {
+                            this.finance.balance = null;
+                        }
+                    })
+                    .catch(err => alert('查询失败: ' + err))
+                    .finally(() => this.finance.searched = true);
+            },
+            withdraw() {
+                if (this.finance.withdrawAmount <= 0) {
+                    this.showFinanceMessage('请输入有效的提现金额', true);
+                    return;
+                }
+                axios.post(`http://localhost:8082/finance/withdraw?anchorId=${this.finance.anchorId}&amount=${this.finance.withdrawAmount}`)
+                    .then(res => {
+                        if (res.data.code === 200) {
+                            this.showFinanceMessage('提现成功！');
+                            this.fetchBalance();
+                            this.finance.withdrawAmount = 0;
+                        } else {
+                            this.showFinanceMessage(res.data.message, true);
+                        }
+                    })
+                    .catch(err => this.showFinanceMessage('提现失败: ' + err, true));
+            },
+            showFinanceMessage(msg, isError = false) {
+                this.finance.message = msg;
+                this.finance.isError = isError;
+                setTimeout(() => this.finance.message = '', 3000);
+            },
+            // --- 分成比例管理 ---
+            fetchRatio() {
+                if (!this.ratio.anchorId) return;
+                this.ratio.anchorName = ''; // 重置名字
+                axios.get(`http://localhost:8082/finance/ratio/${this.ratio.anchorId}`)
+                    .then(res => {
+                        if (res.data.code === 200 && res.data.data) {
+                            this.ratio.currentRatio = res.data.data.ratio;
+                            this.ratio.anchorName = res.data.data.anchorName; // 显示名字
+                        } else {
+                            this.ratio.currentRatio = 0.5; // 默认
+                            this.ratio.anchorName = '未配置 (默认)';
+                        }
+                    })
+                    .catch(err => {
+                        this.ratio.anchorName = '查询失败';
+                    });
+            },
+            updateRatio() {
+                axios.post(`http://localhost:8082/finance/ratio`, {
+                    anchorId: this.ratio.anchorId,
+                    ratio: this.ratio.currentRatio
+                }).then(res => {
+                    this.ratio.message = res.data.message;
+                    this.ratio.isError = res.data.code !== 200;
+                    setTimeout(() => this.ratio.message = '', 3000);
+                }).catch(err => {
+                    this.ratio.message = '更新失败: ' + err;
+                    this.ratio.isError = true;
+                });
+            },
+            // --- 工具 ---
+            formatTime(timeStr) {
+                // 简单处理：去掉T，保留到分钟
+                return timeStr ? timeStr.replace('T', ' ').substring(0, 16) : '';
+            }
+        }
+    });
+</script>
+</body>
+</html>

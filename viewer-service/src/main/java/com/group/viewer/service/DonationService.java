@@ -1,17 +1,21 @@
 package com.group.viewer.service;
 
-import com.group.common.exception.GlobalExceptionHandler;
-import com.group.viewer.entity.DonationRecord;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.group.common.entity.DonationRecord;
+import com.group.viewer.entity.Anchor;
+import com.group.viewer.entity.Viewer;
+import com.group.viewer.mapper.AnchorMapper;
 import com.group.viewer.mapper.DonationMapper;
+import com.group.viewer.mapper.ViewerMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.UUID; // 1. 记得导入这个包
-import cn.hutool.core.util.StrUtil; // 如果你有 hutool
-
+import java.util.List;
+import java.util.UUID;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Service
 @Slf4j
@@ -19,21 +23,68 @@ public class DonationService {
 
     @Autowired
     private DonationMapper donationMapper;
+    
+    @Autowired
+    private AnchorMapper anchorMapper;
+    
+    @Autowired
+    private ViewerMapper viewerMapper;
 
     @Transactional(rollbackFor = Exception.class)
     public void processDonation(DonationRecord record, String traceId) {
-
-
-        // 1. 填充基础信息
-        if (traceId == null || traceId.trim().isEmpty()) {
-            traceId = UUID.randomUUID().toString().replace("-", "");
-            System.out.println("⚠️ 警告: 拦截器未生效，Service层手动生成了 traceId: " + traceId);
+        // 0. 校验金额
+        if (record.getAmount() == null || record.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("打赏金额必须大于0");
         }
 
-        // 把 ID 填进对象里
+        // 1. 校验并补全主播信息
+        if (record.getAnchorId() == null) {
+            throw new IllegalArgumentException("主播ID不能为空");
+        }
+        
+        Anchor anchor = anchorMapper.selectById(record.getAnchorId());
+        if (anchor == null) {
+            throw new IllegalArgumentException("主播不存在: " + record.getAnchorId());
+        }
+        
+        record.setAnchorName(anchor.getName());
+        record.setAnchorGender(anchor.getGender());
+
+        // 2. 处理观众信息 (自动注册/查询)
+        if (record.getViewerName() == null || record.getViewerName().trim().isEmpty()) {
+            throw new IllegalArgumentException("观众姓名不能为空");
+        }
+        
+        // 尝试根据姓名查询观众
+        Viewer viewer = viewerMapper.selectOne(new LambdaQueryWrapper<Viewer>()
+                .eq(Viewer::getName, record.getViewerName()));
+        
+        if (viewer == null) {
+            // 新观众，自动注册
+            viewer = new Viewer();
+            viewer.setName(record.getViewerName());
+            // 如果前端传了性别就用，没传默认男
+            viewer.setGender(record.getViewerGender() != null ? record.getViewerGender() : 1);
+            try {
+                viewerMapper.insert(viewer);
+            } catch (DuplicateKeyException e) {
+                // 并发情况下可能重复插入，重新查询一次
+                viewer = viewerMapper.selectOne(new LambdaQueryWrapper<Viewer>()
+                        .eq(Viewer::getName, record.getViewerName()));
+            }
+        }
+        
+        // 补全观众ID和性别(以数据库为准)
+        record.setViewerId(viewer.getId());
+        record.setViewerGender(viewer.getGender());
+
+        // 3. 填充基础信息
+        if (traceId == null || traceId.trim().isEmpty()) {
+            traceId = UUID.randomUUID().toString().replace("-", "");
+        }
+
         record.setTraceId(traceId);
 
-        // 确保其他必要字段也有值
         if (record.getDonateTime() == null) {
             record.setDonateTime(LocalDateTime.now());
         }
@@ -42,14 +93,19 @@ public class DonationService {
         }
 
         try {
-            // 2. 插入数据库
-            // 如果 traceId 已存在，数据库会抛出 DuplicateKeyException
+            // 4. 插入数据库
             donationMapper.insert(record);
-            log.info("打赏入库成功: viewer={} amount={} traceId={}", record.getViewerId(), record.getAmount(), traceId);
         } catch (DuplicateKeyException e) {
-            // 3. 捕获唯一索引冲突，视为幂等成功（或者返回特定提示）
             log.warn("重复打赏请求 (幂等性拦截): traceId={}", traceId);
-            // 这里不抛出异常，让 Controller 认为处理成功
         }
+    }
+
+    public List<DonationRecord> getDonationsAfterId(Long lastId, Integer limit) {
+        return donationMapper.selectList(
+                new LambdaQueryWrapper<DonationRecord>()
+                        .gt(DonationRecord::getId, lastId)
+                        .orderByAsc(DonationRecord::getId)
+                        .last("LIMIT " + limit)
+        );
     }
 }

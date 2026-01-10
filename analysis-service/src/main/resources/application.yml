@@ -5,7 +5,18 @@ spring:
   application:
     name: analysis-service
   datasource:
-    # 数据库配置占位符
-    url: jdbc:mysql://localhost:3306/db_analysis?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/analysis_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
-    password: password
+    password: 247365
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        service-name: ${spring.application.name}
+
+analysis:
+  etl:
+    profile-calc-rate: 60000 # 用户画像计算间隔，单位毫秒，默认1分钟
+    stats-granularity: MINUTES # 聚合粒度: HOURS 或 MINUTES

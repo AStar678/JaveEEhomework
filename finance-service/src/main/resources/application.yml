@@ -5,7 +5,13 @@ spring:
   application:
     name: finance-service
   datasource:
-    # 数据库配置占位符
-    url: jdbc:mysql://localhost:3306/db_finance?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/finance_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
-    password: password
+    password: 247365
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        service-name: ${spring.application.name}

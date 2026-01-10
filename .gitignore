@@ -1,0 +1,28 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Tools (Consul, Redis)
+*.zip
+*.exe
+*.conf
+consul-data/
+redis-server/
+redis.windows.conf
+redis.windows-service.conf
+Word.docx
+
+# OS
+.DS_Store
+Thumbs.db
