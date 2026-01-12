@@ -2,19 +2,23 @@ package com.group.finance.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.group.common.dto.Result;
+import com.group.common.entity.DonationRecord;
 import com.group.finance.entity.Settlement;
 import com.group.finance.entity.SharingRatio;
+import com.group.finance.mapper.DonationRecordMapper;
 import com.group.finance.mapper.SettlementMapper;
 import com.group.finance.mapper.SharingRatioMapper;
-import com.group.common.entity.DonationRecord;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,16 +31,54 @@ public class FinanceService {
     @Autowired
     private SharingRatioMapper sharingRatioMapper;
 
+    @Autowired
+    private DonationRecordMapper donationRecordMapper;
+
     // 处理同步过来的打赏记录
     @Transactional(rollbackFor = Exception.class)
     public void processDonationRecords(List<DonationRecord> records) {
         if (records == null || records.isEmpty()) return;
 
-        // 1. 按主播分组统计总金额
-        Map<Long, List<DonationRecord>> grouped = records.stream()
+        // 1. 依据 traceId 去重，避免重复处理
+        Map<String, DonationRecord> distinctRecords = new LinkedHashMap<>();
+        for (DonationRecord record : records) {
+            if (record == null || record.getTraceId() == null) {
+                continue;
+            }
+            distinctRecords.putIfAbsent(record.getTraceId(), record);
+        }
+        if (distinctRecords.isEmpty()) return;
+
+        List<String> traceIds = new ArrayList<>(distinctRecords.keySet());
+        List<DonationRecord> existingRecords = donationRecordMapper.selectList(
+                new LambdaQueryWrapper<DonationRecord>()
+                        .select(DonationRecord::getTraceId)
+                        .in(DonationRecord::getTraceId, traceIds)
+        );
+        Set<String> existingTraceIds = existingRecords.stream()
+                .map(DonationRecord::getTraceId)
+                .collect(Collectors.toSet());
+
+        List<DonationRecord> newRecords = distinctRecords.values().stream()
+                .filter(record -> !existingTraceIds.contains(record.getTraceId()))
+                .collect(Collectors.toList());
+
+        if (newRecords.isEmpty()) {
+            log.info("没有需要处理的新打赏记录");
+            return;
+        }
+
+        // 2. 先落库，保证财务侧打赏记录一致
+        for (DonationRecord record : newRecords) {
+            record.setSyncStatus(1);
+            donationRecordMapper.insert(record);
+        }
+
+        // 3. 按主播分组统计总金额
+        Map<Long, List<DonationRecord>> grouped = newRecords.stream()
                 .collect(Collectors.groupingBy(DonationRecord::getAnchorId));
 
-        // 2. 遍历每个主播进行结算
+        // 4. 遍历每个主播进行结算
         for (Map.Entry<Long, List<DonationRecord>> entry : grouped.entrySet()) {
             Long anchorId = entry.getKey();
             List<DonationRecord> anchorRecords = entry.getValue();
@@ -85,11 +127,12 @@ public class FinanceService {
                 BigDecimal currentRevenue = settlement.getTotalRevenue() != null ? settlement.getTotalRevenue() : BigDecimal.ZERO;
                 settlement.setTotalRevenue(currentRevenue.add(totalAmount));
                 
-                settlement.setTotalSettledAmount(settlement.getTotalSettledAmount().add(settledAmount));
+                BigDecimal currentSettled = settlement.getTotalSettledAmount() != null ? settlement.getTotalSettledAmount() : BigDecimal.ZERO;
+                settlement.setTotalSettledAmount(currentSettled.add(settledAmount));
                 settlementMapper.updateById(settlement);
             }
         }
-        log.info("已处理 {} 条打赏记录的财务结算", records.size());
+        log.info("已处理 {} 条打赏记录的财务结算", newRecords.size());
     }
 
     // 查询结算信息
@@ -102,6 +145,11 @@ public class FinanceService {
             settlement.setTotalSettledAmount(BigDecimal.ZERO);
             settlement.setTotalWithdrawnAmount(BigDecimal.ZERO);
         }
+        BigDecimal settledAmount = settlement.getTotalSettledAmount() != null ? settlement.getTotalSettledAmount() : BigDecimal.ZERO;
+        BigDecimal withdrawnAmount = settlement.getTotalWithdrawnAmount() != null ? settlement.getTotalWithdrawnAmount() : BigDecimal.ZERO;
+        settlement.setTotalSettledAmount(settledAmount);
+        settlement.setTotalWithdrawnAmount(withdrawnAmount);
+        settlement.setAvailableAmount(settledAmount.subtract(withdrawnAmount));
         return settlement;
     }
 
@@ -133,7 +181,7 @@ public class FinanceService {
         return Result.success(ratio);
     }
     
-    // 修改分成比例，并重新计算该主播的累计分成
+    // 修改分成比例（仅影响后续入账）
     @Transactional(rollbackFor = Exception.class)
     public Result<String> updateSharingRatio(SharingRatio ratio) {
         if (ratio.getAnchorId() == null || ratio.getRatio() == null) {
@@ -154,17 +202,6 @@ public class FinanceService {
             }
             sharingRatioMapper.updateById(existing);
         }
-        
-        // 2. 重新计算结算表 (基于总流水)
-        Settlement settlement = settlementMapper.selectById(ratio.getAnchorId());
-        if (settlement != null && settlement.getTotalRevenue() != null) {
-            // 新的累计分成 = 总流水 * 新比例
-            BigDecimal newSettledAmount = settlement.getTotalRevenue().multiply(ratio.getRatio());
-            settlement.setTotalSettledAmount(newSettledAmount);
-            settlementMapper.updateById(settlement);
-            return Result.success("分成比例更新成功，已重新计算历史分成");
-        }
-        
         return Result.success("分成比例更新成功");
     }
 }
