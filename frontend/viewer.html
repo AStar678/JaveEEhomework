@@ -24,12 +24,12 @@
                     <form @submit.prevent="donate">
                         <div class="mb-3">
                             <label>主播ID (1-100)</label>
-                            <input type="number" v-model.number="form.anchorId" class="form-control" placeholder="请输入主播ID" required>
+                            <input type="number" v-model.number="form.anchorId" class="form-control" placeholder="请输入主播ID" required min="1" max="100" step="1">
                             <div class="form-text">系统会自动识别主播姓名和性别</div>
                         </div>
                         <div class="mb-3">
                             <label>打赏金额</label>
-                            <input type="number" v-model.number="form.amount" class="form-control" required>
+                            <input type="number" v-model.number="form.amount" class="form-control" required min="0.01" step="0.01">
                         </div>
                         <hr>
                         <div class="mb-3">
@@ -73,7 +73,7 @@
                 <div class="card-header bg-warning text-dark">🏆 主播 Top10 观众</div>
                 <div class="card-body">
                     <div class="input-group mb-3">
-                        <input type="number" v-model.number="queryAnchorId" class="form-control" placeholder="输入主播ID">
+                        <input type="number" v-model.number="queryAnchorId" class="form-control" placeholder="输入主播ID" min="1" max="100" step="1">
                         <button class="btn btn-outline-secondary" @click="getTopViewers">查询</button>
                     </div>
                     <ul class="list-group">

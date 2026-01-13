@@ -10,6 +10,10 @@
 本项目依赖 MySQL、Redis 和 Consul。请确保以下服务已就绪：
 
 *   **MySQL (8.0+)**:
+    *   注意：请确认以下文件中的数据库密码与本地一致
+        *   viewer-service/src/main/resources/application.yml                                                                                                                              
+        *   finance-service/src/main/resources/application.yml                                                                                                                             
+        *   analysis-service/src/main/resources/application.yml  
     *   请依次执行项目 `sql` 目录下的三个脚本，初始化数据库结构与预置数据：
         1.  `01_viewer_db.sql` (观众/打赏库)
         2.  `02_finance_db.sql` (财务库)

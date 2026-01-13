@@ -1,5 +1,6 @@
 package com.group.finance.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -17,4 +18,6 @@ public class Settlement {
     private BigDecimal totalSettledAmount;
     private BigDecimal totalWithdrawnAmount;
     private LocalDateTime lastUpdateTime;
+    @TableField(exist = false)
+    private BigDecimal availableAmount;
 }

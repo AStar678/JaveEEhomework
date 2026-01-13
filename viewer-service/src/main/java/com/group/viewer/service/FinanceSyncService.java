@@ -25,16 +25,14 @@ public class FinanceSyncService {
     @Autowired
     private FinanceClient financeClient;
 
-    @Scheduled(fixedRate = 30000) // 每30秒同步一次
-    // 注意：这里不要加 @Transactional，因为 Feign 调用耗时较长，且如果 Feign 成功但本地更新失败，会导致数据重复推送
-    // 我们采用手动控制事务或者仅在更新本地状态时开启事务
+    @Scheduled(fixedRate = 5000) 
     public void syncDonationData() {
         log.info("开始同步打赏数据给财务服务...");
 
         List<DonationRecord> unsyncedRecords = donationMapper.selectList(
                 new LambdaQueryWrapper<DonationRecord>()
                         .eq(DonationRecord::getSyncStatus, 0)
-                        .last("LIMIT 100")
+                        .last("LIMIT 500")
         );
 
         if (unsyncedRecords.isEmpty()) {

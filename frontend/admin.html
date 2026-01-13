@@ -29,7 +29,7 @@
                     <label>并发线程数</label>
                 </div>
                 <div class="col-auto">
-                    <input type="number" v-model.number="threads" class="form-control" style="width: 100px;">
+                    <input type="number" v-model.number="threads" class="form-control" style="width: 100px;" min="1" step="1">
                 </div>
                 <div class="col-auto">
                     <button class="btn btn-success" @click="startSim" :disabled="isRunning">启动模拟</button>
@@ -67,7 +67,7 @@
             <form class="row g-3 mb-3" @submit.prevent="queryStats(1)">
                 <div class="col-md-2">
                     <label>主播ID</label>
-                    <input type="number" v-model.number="query.anchorId" class="form-control" placeholder="可选">
+                    <input type="number" v-model.number="query.anchorId" class="form-control" placeholder="可选" min="1" step="1">
                 </div>
                 <div class="col-md-2">
                     <label>观众性别</label>
@@ -211,7 +211,7 @@
                     <h5 class="card-title text-center mb-4">💰 余额查询与提现</h5>
                     <div class="mb-3 text-center">
                         <div class="input-group w-75 mx-auto">
-                            <input type="number" v-model.number="finance.anchorId" class="form-control" placeholder="输入主播ID">
+                            <input type="number" v-model.number="finance.anchorId" class="form-control" placeholder="输入主播ID" min="1" step="1">
                             <button class="btn btn-primary" @click="fetchBalance">查询</button>
                         </div>
                     </div>
@@ -240,7 +240,7 @@
 
                         <div class="mt-4">
                             <div class="input-group w-75 mx-auto">
-                                <input type="number" v-model.number="finance.withdrawAmount" class="form-control" placeholder="提现金额">
+                                <input type="number" v-model.number="finance.withdrawAmount" class="form-control" placeholder="提现金额" min="0.01" step="0.01">
                                 <button class="btn btn-success" @click="withdraw">提现</button>
                             </div>
                         </div>
@@ -255,7 +255,7 @@
                         <div class="mb-3">
                             <label>主播ID</label>
                             <div class="input-group">
-                                <input type="number" v-model.number="ratio.anchorId" class="form-control" placeholder="输入主播ID">
+                                <input type="number" v-model.number="ratio.anchorId" class="form-control" placeholder="输入主播ID" min="1" step="1">
                                 <button class="btn btn-info" @click="fetchRatio">查询比例</button>
                             </div>
                         </div>
@@ -328,8 +328,14 @@
         },
         computed: {
             withdrawableAmount() {
-                if (!this.finance.balance) return 0;
-                return this.finance.balance.totalSettledAmount - this.finance.balance.totalWithdrawnAmount;
+                if (!this.finance.balance) return '0.00';
+                const available = this.finance.balance.availableAmount;
+                const settled = this.finance.balance.totalSettledAmount;
+                const withdrawn = this.finance.balance.totalWithdrawnAmount;
+                const value = available !== null && available !== undefined
+                    ? Number(available)
+                    : Number(settled || 0) - Number(withdrawn || 0);
+                return value.toFixed(2);
             }
         },
         methods: {
